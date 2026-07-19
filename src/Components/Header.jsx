@@ -4,7 +4,7 @@ import spott from "../assets/spott.png";
 
 function Header() {
   return (
-    <nav className="bg-gray-700">
+    <nav className="fixed top-0 left-0 w-full z-50 bg-gray-950">
   <div className="flex items-center justify-between px-5 py-4">
     <img src={spott} alt="Logo" className="h-12 w-20" />
 
