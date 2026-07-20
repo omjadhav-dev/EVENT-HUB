@@ -66,7 +66,7 @@ function Login() {
   };
 
   return (
-    <div className="flex justify-center items-center py-25 px-4 mt-10 bg-gray-950">
+    <div className="flex justify-center items-center py-25 px-4 mt-10">
       <div className="w-full max-w-md bg-gray-900 rounded-xl shadow-lg border border-gray-800 p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white">
@@ -109,7 +109,7 @@ function Login() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 transition rounded-lg py-3 text-white font-semibold cursor-pointer"
+            className="w-full bg-yellow-600 hover:bg-yellow-700 transition rounded-lg py-3 text-white font-semibold cursor-pointer"
           >
             Log In
           </button>
