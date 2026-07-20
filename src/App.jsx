@@ -1,19 +1,31 @@
-import React from 'react'
-import Header from './components/Header'
-import Footer from './components/Footer'
-import Home from './components/Home';
+import { Routes, Route } from "react-router-dom";
+
+import PublicLayout from "./layouts/PublicLayout";
+import MainLayout from "./layouts/MainLayout";
+
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Signup from "./pages/SignUp";
+import Explore from "./pages/Explore";
 
 function App() {
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col">
-      <Header />
+    <Routes>
 
-      <main className="flex-1">
-        <Home/>
-      </main>
+      {/* Gradient Layout */}
+      <Route element={<PublicLayout />}>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+      </Route>
 
-      <Footer />
-    </div>
+      {/* Plain Layout */}
+      <Route element={<MainLayout />}>
+        <Route path="/explore" element={<Explore />} />
+      </Route>
+
+    </Routes>
   );
 }
-export default App
+
+export default App;
