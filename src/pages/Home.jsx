@@ -24,7 +24,7 @@ function Home() {
           <button className="bg-amber-50 text-gray-900 px-6 py-3 rounded-xl font-semibold hover:bg-amber-200 transition">
             Get Started
           </button>
-          <button className="text-white border border-amber-50 border-2 px-6 py-3 ml-5 rounded-xl font-semibold hover:bg-amber-200 transition">Host an event</button>
+          <button className="text-white border border-amber-50 border-2 px-6 py-3 ml-5 rounded-xl font-semibold hover:text-amber-300 cursor-pointer transition">Host an event</button>
         </div>
 
         <div className="absolute right-10 bottom-10 h-[350px] w-[350px] rounded-full bg-gradient-to-br from-yellow-400 to-orange-600 blur-3xl opacity-30"></div>

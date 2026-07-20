@@ -7,6 +7,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Explore from "./pages/Explore";
+import Event from "./pages/Event";
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
       {/* Plain Layout */}
       <Route element={<MainLayout />}>
         <Route path="/explore" element={<Explore />} />
+        <Route path="/event" element={<Event/>}/>
       </Route>
 
     </Routes>

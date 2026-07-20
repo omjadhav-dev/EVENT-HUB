@@ -29,7 +29,7 @@ function Header() {
         </div>
 
         <div className="flex items-center gap-4">
-          <Link to="/" className="text-white hover:text-gray-300">
+          <Link to="/explore" className="text-white hover:text-gray-300">
             Explore
           </Link>
 

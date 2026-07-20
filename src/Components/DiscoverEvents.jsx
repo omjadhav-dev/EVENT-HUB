@@ -29,7 +29,7 @@ function DiscoverEvents() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrent((prev) => (prev + 1) % events.length);
-    }, 9000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);
