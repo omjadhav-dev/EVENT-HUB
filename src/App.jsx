@@ -5,7 +5,7 @@ import MainLayout from "./layouts/MainLayout";
 
 import Home from "./pages/Home";
 import Login from "./pages/Login";
-import Signup from "./pages/SignUp";
+import SignUp from "./pages/SignUp";
 import Explore from "./pages/Explore";
 
 function App() {
@@ -16,7 +16,7 @@ function App() {
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/signup" element={<SignUp />} />
       </Route>
 
       {/* Plain Layout */}
