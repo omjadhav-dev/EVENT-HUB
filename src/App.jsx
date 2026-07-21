@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Explore from "./pages/Explore";
 import Event from "./pages/Event";
+import Create from "./pages/Create";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
       <Route element={<MainLayout />}>
         <Route path="/explore" element={<Explore />} />
         <Route path="/event/:id" element={<Event />}/>
+        <Route path="/create" element={<Create/>}/>
       </Route>
 
     </Routes>

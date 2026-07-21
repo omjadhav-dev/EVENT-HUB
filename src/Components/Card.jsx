@@ -12,7 +12,7 @@ function Card({
   mode,
   date,
   location,
-  tags
+  tags,
 }) {
   return (
     <Link to={`/event/${id}`} className="group block">
