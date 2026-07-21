@@ -1,15 +1,10 @@
 import React, { useEffect, useState } from "react";
 import Card from "../components/Card";
+import eventList from "../data/eventList";
 
 function Explore() {
   // Categories
-  const categories = [
-    "All",
-    "Technology",
-    "Seminar",
-    "Meetup",
-    "Hackathon",
-  ];
+  const categories = ["All", "Technology", "Seminar", "Meetup", "Hackathon"];
 
   // Search Input
   const [search, setSearch] = useState("");
@@ -31,52 +26,7 @@ function Explore() {
   useEffect(() => {
     setLoading(true);
 
-    const dummyEvents = [
-      {
-        id: 1,
-        title: "React Meetup",
-        description: "Networking session for React Developers.",
-        category: "Meetup",
-        image: "https://media.licdn.com/dms/image/v2/D5622AQEkI6QKxPivBw/feedshare-shrink_800/B56ZXrAH2_HEAg-/0/1743404433745?e=2147483647&v=beta&t=bBoZmG8b0eyr9ouqMXO3ygmGanctxQkvCDW1jIjTXGQ",
-      },
-      {
-        id: 2,
-        title: "AI Seminar",
-        description: "Introduction to Artificial Intelligence.",
-        category: "Seminar",
-        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTq5PEj5O796siJc7gqVslCyNrETTPvkTLDxIHexv41ntZ5rmbpk9DTygjY&s=10",
-      },
-      {
-        id: 3,
-        title: "Hack India",
-        description: "24 Hour National Hackathon.",
-        category: "Hackathon",
-        image: "https://khajana.blob.core.windows.net/hackindia/news/1782070280057_khisru_Untitled_design__90_.webp",
-      },
-      {
-        id: 4,
-        title: "Tech Conference",
-        description: "Latest trends in Technology.",
-        category: "Technology",
-        image: "https://cdn.prod.website-files.com/645be0c3de94f82b7aad951a/66daefb089ead127c970d434_Featured-image.jpg",
-      },
-      {
-        id: 5,
-        title: "React Advanced",
-        description: "Hooks, Redux and Performance.",
-        category: "Technology",
-        image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjUmRyWIGFaEwnciDv-qVsNPQDzU3LLZm6a9hAinDR7w&s=10",
-      },
-      {
-        id: 6,
-        title: "Community Meetup",
-        description: "Meet local developers.",
-        category: "Meetup",
-        image: "https://media.licdn.com/dms/image/v2/C5612AQEr3WmxhGSbxg/article-cover_image-shrink_720_1280/article-cover_image-shrink_720_1280/0/1644862734630?e=2147483647&v=beta&t=M5AxxQvXksyGDUNYiIyZ7G0zAhfqdmYgrlQhMdTkLfI",
-      },
-    ];
-
-    setEvents(dummyEvents);
+    setEvents(eventList);
     setLoading(false);
 
     // =========================================================
@@ -94,7 +44,6 @@ function Explore() {
     // }
     //
     // fetchEvents();
-
   }, []);
 
   // =========================================================
@@ -103,24 +52,21 @@ function Explore() {
 
   const filteredEvents = events.filter((event) => {
     const matchesCategory =
-      activeCategory === "All" ||
-      event.category === activeCategory;
+      activeCategory === "All" || event.category === activeCategory;
 
-    const matchesSearch =
-      event.title.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = event.title
+      .toLowerCase()
+      .includes(search.toLowerCase());
 
     return matchesCategory && matchesSearch;
   });
 
   return (
     <div className="min-h-screen text-white px-6 py-28">
-
       {/* Heading */}
 
       <div className="text-center mb-10">
-        <h1 className="text-4xl font-bold">
-          Explore Events
-        </h1>
+        <h1 className="text-4xl font-bold">Explore Events</h1>
 
         <p className="text-gray-400 mt-2">
           Discover amazing events happening around you.
@@ -160,19 +106,22 @@ function Explore() {
       {/* Cards */}
 
       {loading ? (
-        <h2 className="text-center text-gray-400">
-          Loading Events...
-        </h2>
+        <h2 className="text-center text-gray-400">Loading Events...</h2>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredEvents.length > 0 ? (
             filteredEvents.map((event) => (
               <Card
-                key={event.id}
-                image={event.image}
-                title={event.title}
-                description={event.description}
-              />
+    key={event.id}
+    id={event.id}
+    image={event.image}
+    title={event.title}
+    category={event.category}
+    priceType={event.priceType}
+    date={event.date}
+    location={event.location}
+    tags={event.tags}
+/>
             ))
           ) : (
             <h2 className="col-span-full text-center text-gray-400">

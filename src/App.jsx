@@ -23,7 +23,7 @@ function App() {
       {/* Plain Layout */}
       <Route element={<MainLayout />}>
         <Route path="/explore" element={<Explore />} />
-        <Route path="/event" element={<Event/>}/>
+        <Route path="/event/:id" element={<Event />}/>
       </Route>
 
     </Routes>
