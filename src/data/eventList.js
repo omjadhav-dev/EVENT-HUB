@@ -8,6 +8,10 @@ const eventList = [
     category: "Meetup",
     priceType: "Free",
 
+    type: "Free",
+
+    mode: "Offline",
+
     image:
       "https://media.licdn.com/dms/image/v2/D5622AQEkI6QKxPivBw/feedshare-shrink_800/B56ZXrAH2_HEAg-/0/1743404433745?e=2147483647&v=beta&t=bBoZmG8b0eyr9ouqMXO3ygmGanctxQkvCDW1jIjTXGQ",
 
@@ -33,6 +37,9 @@ const eventList = [
 
     category: "Seminar",
     priceType: "₹499",
+
+    type: "Paid",
+    mode: "Offline",
 
     image:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTq5PEj5O796siJc7gqVslCyNrETTPvkTLDxIHexv41ntZ5rmbpk9DTygjY&s=10",
@@ -60,6 +67,10 @@ const eventList = [
     category: "Hackathon",
     priceType: "Free",
 
+    type: "Free",
+
+    mode: "Offline",
+
     image:
       "https://khajana.blob.core.windows.net/hackindia/news/1782070280057_khisru_Untitled_design__90_.webp",
 
@@ -85,6 +96,10 @@ const eventList = [
 
     category: "Technology",
     priceType: "₹999",
+
+    type: "Paid",
+
+    mode: "Online",
 
     image:
       "https://cdn.prod.website-files.com/645be0c3de94f82b7aad951a/66daefb089ead127c970d434_Featured-image.jpg",
@@ -112,6 +127,9 @@ const eventList = [
     category: "Workshop",
     priceType: "₹799",
 
+    type: "Paid",
+    mode: "Offline",
+
     image:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjUmRyWIGFaEwnciDv-qVsNPQDzU3LLZm6a9hAinDR7w&s=10",
 
@@ -137,6 +155,10 @@ const eventList = [
 
     category: "Meetup",
     priceType: "Free",
+
+    type: "Free",
+
+    mode: "Online",
 
     image:
       "https://media.licdn.com/dms/image/v2/C5612AQEr3WmxhGSbxg/article-cover_image-shrink_720_1280/article-cover_image-shrink_720_1280/0/1644862734630?e=2147483647&v=beta&t=M5AxxQvXksyGDUNYiIyZ7G0zAhfqdmYgrlQhMdTkLfI",

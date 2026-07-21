@@ -4,7 +4,7 @@ import eventList from "../data/eventList";
 
 function Explore() {
   // Categories
-  const categories = ["All", "Technology", "Seminar", "Meetup", "Hackathon"];
+  const categories = ["All", "Technology", "Seminar", "Meetup", "Hackathon", "Offline", "Online", "Paid", "Free"];
 
   // Search Input
   const [search, setSearch] = useState("");
@@ -52,7 +52,7 @@ function Explore() {
 
   const filteredEvents = events.filter((event) => {
     const matchesCategory =
-      activeCategory === "All" || event.category === activeCategory;
+      activeCategory === "All" || event.category === activeCategory || event.mode === activeCategory || event.type === activeCategory;
 
     const matchesSearch = event.title
       .toLowerCase()
@@ -65,7 +65,7 @@ function Explore() {
     <div className="min-h-screen text-white px-6 py-28">
       {/* Heading */}
 
-      <div className="text-center mb-10">
+      <div className="text-center mb-8">
         <h1 className="text-4xl font-bold">Explore Events</h1>
 
         <p className="text-gray-400 mt-2">
@@ -81,7 +81,7 @@ function Explore() {
           placeholder="Search Events..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-xl px-5 py-3 rounded-lg bg-gray-800 border border-gray-700 outline-none focus:border-blue-500"
+          className="w-full max-w-xl px-5 py-2 rounded-lg bg-gray-800 border border-gray-700 outline-none focus:border-blue-500"
         />
       </div>
 
@@ -112,16 +112,18 @@ function Explore() {
           {filteredEvents.length > 0 ? (
             filteredEvents.map((event) => (
               <Card
-    key={event.id}
-    id={event.id}
-    image={event.image}
-    title={event.title}
-    category={event.category}
-    priceType={event.priceType}
-    date={event.date}
-    location={event.location}
-    tags={event.tags}
-/>
+                key={event.id}
+                id={event.id}
+                image={event.image}
+                title={event.title}
+                category={event.category}
+                priceType={event.priceType}
+                type={event.type}
+                mode={event.mode}
+                date={event.date}
+                location={event.location}
+                tags={event.tags}
+              />
             ))
           ) : (
             <h2 className="col-span-full text-center text-gray-400">

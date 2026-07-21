@@ -26,19 +26,45 @@ function Event() {
       {/* Hero */}
 
       <div className="max-w-7xl mx-auto px-6">
-        <img
-          src={event.image}
-          alt={event.title}
-          className="w-full h-[420px] object-cover rounded-2xl"
-        />
+        <div className="relative h-[400px] rounded-3xl overflow-hidden">
+  <img
+    src={event.image}
+    className="absolute inset-0 w-full h-full object-cover"
+  />
 
-        <div className="grid lg:grid-cols-3 gap-8 mt-10">
+  <div className="absolute inset-0 bg-black/30"></div>
+
+  
+  <div className="absolute bottom-10 left-10">
+    <h1 className="text-6xl  font-sans font-bold">{event.title}</h1>
+  </div>
+</div>
+        <div className="grid lg:grid-cols-3 gap-8 mt-5">
           {/* Left */}
 
           <div className="lg:col-span-2">
-            <h1 className="text-4xl font-bold">{event.title}</h1>
+            
 
-            <p className="mt-3 text-gray-400">Hosted by {event.host}</p>
+            <p className="mt-3 px-2 text-gray-400">Hosted by {event.host}</p>
+
+            <div className="flex flex-wrap gap-3 mt-6">
+              <span className="px-4 py-2 rounded-lg bg-violet-900 font-semibold text-sm uppercase">
+  {event.category}
+</span>
+
+<span className="px-4 py-2 rounded-lg bg-gray-800 font-semibold text-sm uppercase">
+  {event.mode}
+</span>
+            {event.tags?.slice(0, 2).map((tag) => (
+              <span
+                key={tag}
+                className="px-4 py-2 rounded-full border border-violet-700 text-white bg-violet-950/30 text-sm"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+
 
             <div className="grid md:grid-cols-2 gap-5 mt-10">
               <div className="bg-slate-900 rounded-xl p-5">
@@ -72,7 +98,7 @@ function Event() {
           {/* Right */}
 
           <div>
-            <div className="bg-slate-900 rounded-2xl p-6 sticky top-28">
+            <div className="bg-slate-900 rounded-2xl p-6 sticky top-28 mt-10">
               <h2 className="text-2xl font-bold">Choose Ticket</h2>
 
               <p className="text-gray-400 mt-2">1 Tier Available</p>
