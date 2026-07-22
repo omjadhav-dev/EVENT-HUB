@@ -6,6 +6,7 @@ import logo from "../assets/logo.png";
 
 function Header() {
   const authStatus = useSelector((state) => state.auth.status);
+  const userData = useSelector((state) => state.auth.userData);
 
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
@@ -84,13 +85,26 @@ function Header() {
         </div>
 
         <div className="flex items-center gap-4">
-          <Link to="/explore" className="text-white hover:text-gray-300">
+          <Link to="/explore" className="text-white hover:text-yellow-400">
             Explore
           </Link>
+          {authStatus &&
+            (userData?.userType === "Attendee" ? (
+              <Link
+                to="/mybookings"
+                className="text-white hover:text-yellow-400"
+              >
+                My Bookings
+              </Link>
+            ) : (
+              <Link to="/myevents" className="text-white hover:text-yellow-400">
+                My Events
+              </Link>
+            ))}
 
-          <button className="h-10 px-5 rounded-2xl bg-amber-50">
+          {/*<button className="h-10 px-5 rounded-2xl bg-amber-50 cursor-pointer hover:bg-amber-200">
             + Create Event
-          </button>
+          </button>*/}
 
           {authStatus ? (
             <button className="h-12 w-12 rounded-full bg-blue-600 text-white">
@@ -98,15 +112,8 @@ function Header() {
             </button>
           ) : (
             <>
-              <Link to="/login" className="text-white">
+              <Link to="/login" className="text-white hover:text-yellow-400">
                 Login
-              </Link>
-
-              <Link
-                to="/signup"
-                className="px-5 py-2 rounded-2xl bg-blue-600 text-white"
-              >
-                Sign Up
               </Link>
             </>
           )}
