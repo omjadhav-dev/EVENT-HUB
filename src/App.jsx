@@ -10,6 +10,8 @@ import Explore from "./pages/Explore";
 import Event from "./pages/Event";
 import MyEvents from "./pages/MyEvents";
 import Create from "./pages/Create"
+import MyBookings from "./pages/MyBookings";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -28,6 +30,8 @@ function App() {
         <Route path="/event/:id" element={<Event />}/>
         <Route path="/myevents" element={<MyEvents/>}/>
         <Route path="/create" element={<Create/>}/>
+        <Route path="/mybookings" element={<MyBookings/>}/>
+        <Route path="/profile" element={<Profile/>}/>
       </Route>
 
     </Routes>

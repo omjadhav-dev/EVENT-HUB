@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { login } from "../store/authSlice";
 
 function Login() {
@@ -9,6 +9,8 @@ function Login() {
   const [password, setPassword] = useState("");
 
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const users = useSelector((state) => state.users.list);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -19,17 +21,34 @@ function Login() {
       return;
     }
 
-    // Temporary user object
-    // NOTE: This is only for frontend testing.
-    // Once the backend is connected, DON'T dispatch the password.
+    // Look the account up instead of asking the person whether they're an
+    // Attendee or Organizer - that was decided when they signed up.
+    const matchedUser = users.find(
+      (u) => u.email === email && u.password === password,
+    );
+
+    if (!matchedUser) {
+      alert(
+        "Invalid email or password. If you don't have an account yet, please sign up first.",
+      );
+      return;
+    }
+
     const user = {
-      email,
-      password,
+      name: matchedUser.name,
+      email: matchedUser.email,
+      userType: matchedUser.userType,
     };
 
-    dispatch(login(user));
+    // authSlice's "login" reducer reads action.payload.userData,
+    // so the user object must be wrapped like this.
+    dispatch(login({ userData: user }));
 
     console.log("Logged In:", user);
+
+    // Both Attendees and Organizers land on the home page after logging in
+    // - the header alone used to update while the page stayed put.
+    navigate("/");
 
     // ========================= FUTURE BACKEND STEPS =========================
     //
@@ -40,14 +59,15 @@ function Login() {
     //   password,
     // });
     //
-    // 2. Backend verifies credentials
+    // 2. Backend verifies credentials and returns the user's userType
     //
     // 3. Backend returns:
     // {
     //   user: {
     //      id,
     //      name,
-    //      email
+    //      email,
+    //      userType
     //   },
     //   token
     // }
@@ -57,7 +77,7 @@ function Login() {
     //
     // 5. Dispatch only user information
     //
-    // dispatch(login(response.data.user));
+    // dispatch(login({ userData: response.data.user }));
     //
     // 6. Navigate to Home/Dashboard
     //

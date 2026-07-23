@@ -107,9 +107,11 @@ function Header() {
           </button>*/}
 
           {authStatus ? (
-            <button className="h-12 w-12 rounded-full bg-blue-600 text-white">
-              P
-            </button>
+            <Link to="/profile">
+              <button className="h-12 w-12  text-2xl rounded-full bg-blue-600 text-white">
+                {userData?.name?.charAt(0)}
+              </button>
+            </Link>
           ) : (
             <>
               <Link to="/login" className="text-white hover:text-yellow-400">

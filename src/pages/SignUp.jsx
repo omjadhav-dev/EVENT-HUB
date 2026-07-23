@@ -1,14 +1,21 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { registerUser } from "../store/usersSlice";
 
 function SignUp() {
-  
+  const location = useLocation();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [userType, setUserType] = useState("");
+  const [userType, setUserType] = useState(
+    location.state?.presetUserType === "host" ? "host" : "",
+  );
 
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const users = useSelector((state) => state.users.list);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -19,14 +26,23 @@ function SignUp() {
       return;
     }
 
-    // Temporary User Object
-    // This is only for frontend testing.
+    if (users.some((u) => u.email === email)) {
+      alert("An account with this email already exists. Please log in.");
+      return;
+    }
+
+    // Stored so Login can verify credentials and know the userType
+    // automatically, without asking the user to pick it every time.
+    // NOTE: storing the raw password client-side is only for frontend
+    // testing - a real backend should hash it before this ever exists.
     const user = {
       name,
       email,
       password,
-      userType,
+      userType: userType === "attendee" ? "Attendee" : "Organizer",
     };
+
+    dispatch(registerUser(user));
 
     console.log("User Registered:", user);
 
