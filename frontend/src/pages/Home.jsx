@@ -1,21 +1,39 @@
-import React, { useState, useEffect } from "react";
-import spott from "../assets/spott.png";
+import React from "react";
 import Card from "../components/Card";
 import DiscoverEvents from "../components/DiscoverEvents";
-import eventList from "../data/eventList";
+import { useSelector } from "react-redux";
 import image from "../assets/image.png";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 function Home() {
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // Pulled live from Redux so newly published events show up here too.
+  const events = useSelector((state) => state.event.list);
+  const authStatus = useSelector((state) => state.auth.status);
+  const userData = useSelector((state) => state.auth.userData);
 
-  useEffect(() => {
-    setLoading(true);
+  const navigate = useNavigate();
 
-    setEvents(eventList);
-    setLoading(false);
-  }, []);
+  const handleHostClick = () => {
+    // Only an already-registered Organizer can jump straight to Create.
+    // Everyone else has to register as a host first.
+    if (authStatus && userData?.userType === "Organizer") {
+      navigate("/create");
+      return;
+    }
+
+    if (authStatus) {
+      // Logged in, but as an Attendee - point them to their profile so
+      // they can switch account type before hosting.
+      alert(
+        "Your account is registered as an Attendee. Switch to Organizer in your profile to host events.",
+      );
+      navigate("/profile");
+      return;
+    }
+
+    alert("Please register as a host to start hosting events.");
+    navigate("/signup", { state: { presetUserType: "host" } });
+  };
 
   return (
     <>
@@ -38,11 +56,12 @@ function Home() {
               Get Started
             </button>
           </Link>
-          <Link to="/create">
-            <button className="text-white border border-amber-50 border-2 px-6 py-3 ml-5 rounded-xl font-semibold hover:text-amber-300 cursor-pointer transition">
-              Host an event
-            </button>
-          </Link>
+          <button
+            onClick={handleHostClick}
+            className="text-white border border-amber-50 border-2 px-6 py-3 ml-5 rounded-xl font-semibold hover:text-amber-300 cursor-pointer transition"
+          >
+            Host an event
+          </button>
         </div>
         <img
           src={image}
