@@ -19,7 +19,7 @@ const eventSchema = new Schema({
         enum: ["Offline", "Online"],
         required: true,
     },
-    image: {
+    coverImage: {
         type: String,
         required: true,
     },
@@ -55,7 +55,7 @@ const eventSchema = new Schema({
         required: true,
     },
     ticketPrice: {
-        type: Number,
+        type: Number, 
     },
     registrationCount: 
     { 
