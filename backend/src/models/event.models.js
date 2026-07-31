@@ -19,7 +19,7 @@ const eventSchema = new Schema({
         enum: ["Offline", "Online"],
         required: true,
     },
-    coverImage: {
+    image: {
         type: String,
         required: true,
     },
