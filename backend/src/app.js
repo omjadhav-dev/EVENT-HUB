@@ -18,10 +18,12 @@ app.use(cookieParser())
 import userRouter from "./routes/user.routes.js";
 import eventRouter from "./routes/event.routes.js";
 import registrationRouter from "./routes/registration.routes.js";
+import messageRouter from "./routes/message.routes.js";
 
 app.use("/api/v1/users", userRouter)
 app.use("/api/v1/events", eventRouter)
 app.use("/api/v1/registrations", registrationRouter)
+app.use("/api/v1/messages", messageRouter)
 
 
 export default app;
