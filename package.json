@@ -1,0 +1,18 @@
+{
+  "name": "event-hub",
+  "version": "1.0.0",
+  "description": "keep the type: module in package.json npm i express mongoose dotenv cors cookie-parser npm i -D nodemon edit script tag in pck.json start: node src/index.js dev: nodemon src/index.js in .env file in mongodb_url remove the last / which comes when you copy from atlas  configurations are made in app.js on what kind of data to accept what is the limit etc npm i bcrypt jsonwebtoken  npm i cloudinary multer refersh tokens are long lived and access short lived, the concept is like whenever the access token expires the user need to re-login to authenticate so here the refersh token comes and says frontend the refresh token which you have give it to me i will compare it with the one in db and generate a new access token",
+  "main": "index.js",
+  "scripts": {
+    "frontend": "npm --prefix frontend run dev",
+    "backend": "npm --prefix backend run dev",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "concurrently": "^10.0.4"
+  }
+}

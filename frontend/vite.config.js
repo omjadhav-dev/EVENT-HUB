@@ -4,7 +4,15 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   server: {
     proxy: {
-      '/api': "https://localhost:7070"
+      '/api': {
+        target: "http://localhost:7070",
+        changeOrigin: true,
+      },
+      '/socket.io': {
+        target: "http://localhost:7070",
+        changeOrigin: true,
+        ws: true,
+      }
     }
   },
   plugins: [
