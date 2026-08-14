@@ -2,6 +2,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { apiError } from "../utils/apiError.js";
 import { User } from "../models/user.models.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import jwt from "jsonwebtoken";
 
 const generateAccessTokenAndRefreshToken = async (userId) => {
   try {
@@ -32,7 +33,7 @@ const registerUser = asyncHandler(async (req, res) => {
   // check for user creation
   // return res
 
-  const { name, email, password, userType } = req.body;
+  const { name, email, password, userType, state, city } = req.body;
 
   if ([name, email, password, userType].some((field) => field?.trim() === "")) {
     throw new apiError(400, "All fields are required");
@@ -53,6 +54,10 @@ const registerUser = asyncHandler(async (req, res) => {
     email,
     password,
     userType,
+    location: {
+      state: state?.trim() || "",
+      city: city?.trim() || "",
+    },
   });
 
   const createdUser = await User.findById(user._id).select(
@@ -96,7 +101,8 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const options = {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
   };
 
   return res
@@ -121,14 +127,102 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   const options = {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
   };
 
   return res
     .status(200)
     .clearCookie("accessToken", options)
     .clearCookie("refreshToken", options)
-    .json(new ApiResponse(200, {}, "User logged Out"));
+    .json(new apiResponse(200, "User logged Out", {}));
 });
 
-export { registerUser, loginUser, logoutUser };
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies?.refreshToken || req.body?.refreshToken;
+
+  if (!incomingRefreshToken) {
+    throw new apiError(401, "Unauthorized request");
+  }
+
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET,
+    );
+
+    const user = await User.findById(decodedToken?._id);
+
+    if (!user) {
+      throw new apiError(401, "Invalid refresh token");
+    }
+
+    if (incomingRefreshToken !== user.refreshToken) {
+      throw new apiError(401, "Refresh token is expired or has been used");
+    }
+
+    const { accessToken, refreshToken } =
+      await generateAccessTokenAndRefreshToken(user._id);
+
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    };
+
+    const loggedInUser = await User.findById(user._id).select(
+      "-password -refreshToken",
+    );
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json(
+        new apiResponse(
+          200,
+          "Access token refreshed successfully",
+          loggedInUser,
+        ),
+      );
+  } catch (error) {
+    throw new apiError(401, error?.message || "Invalid refresh token");
+  }
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new apiResponse(200, "Current user fetched successfully", req.user));
+});
+
+const updateUserProfile = asyncHandler(async (req, res) => {
+  // userType is intentionally not editable here - it's fixed at
+  // registration. See registerUser.
+  const { name, state, city } = req.body;
+
+  const updates = {};
+  if (name && name.trim() !== "") updates.name = name.trim();
+  if (state !== undefined) updates["location.state"] = state.trim();
+  if (city !== undefined) updates["location.city"] = city.trim();
+
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    { $set: updates },
+    { new: true, runValidators: true },
+  ).select("-password -refreshToken");
+
+  return res
+    .status(200)
+    .json(new apiResponse(200, "Profile updated successfully", updatedUser));
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  getCurrentUser,
+  updateUserProfile,
+};
