@@ -1,28 +1,49 @@
-import {mongoose, Schema, model} from "mongoose"
+import { mongoose, Schema, model } from "mongoose";
 
-const registrationSchema = new Schema({
+const registrationSchema = new Schema(
+  {
     eventId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Event",
-        required: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Event",
+      required: true,
     },
+
     userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
+
     qrCode: {
-        type: String,
-        required: true,
-        unique: true,
+      type: String,
+      required: true,
+      unique: true,
     },
-    checkedIn: { 
-        type: Boolean, 
-        default: false ,
+
+    checkedIn: {
+      type: Boolean,
+      default: false,
     },
+
     status: {
-        type: String,
-        enum: ["Confirmed", "Cancelled"],
-        required: true,
-    }
-}, {timestamps: true})
+      type: String,
+      enum: ["Confirmed", "Cancelled"],
+      default: "Confirmed",
+    },
+  },
+  {
+    timestamps: true,
+  },
+);
+
+registrationSchema.index(
+  {
+    eventId: 1,
+    userId: 1,
+  },
+  {
+    unique: true,
+  },
+);
+
+export const Registration = model("Registration", registrationSchema);
