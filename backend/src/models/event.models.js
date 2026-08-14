@@ -51,14 +51,21 @@ const eventSchema = new Schema(
 
     venue: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
     },
 
     city: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
+    },
+
+    // Only used when mode === "Online" - shown in place of venue/city.
+    meetingLink: {
+      type: String,
+      trim: true,
+      default: "",
     },
 
     organizerId: {

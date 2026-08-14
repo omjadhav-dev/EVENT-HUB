@@ -3,6 +3,7 @@ import { apiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { Event } from "../models/event.models.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
+import { generateText } from "../utils/gemini.js";
 import mongoose from "mongoose";
 
 // CREATE
@@ -17,32 +18,41 @@ const createEvent = asyncHandler(async (req, res) => {
     end,
     venue,
     city,
+    meetingLink,
     ticketType,
     ticketPrice,
     capacity,
   } = req.body;
 
   if (
-    [
-      title,
-      description,
-      category,
-      mode,
-      start,
-      end,
-      venue,
-      city,
-      ticketType,
-    ].some(
+    [title, description, category, mode, start, end, ticketType].some(
       (field) => !field || (typeof field === "string" && field.trim() === ""),
     )
   ) {
     throw new apiError(400, "All fields are required");
   }
 
+  if (mode === "Offline" && (!venue?.trim() || !city?.trim())) {
+    throw new apiError(400, "Venue and city are required for offline events");
+  }
+
+  if (mode === "Online" && !meetingLink?.trim()) {
+    throw new apiError(400, "A meeting link is required for online events");
+  }
+
   if (!tags || (typeof tags === "string" && tags.trim() === "")) {
     throw new apiError(400, "Tags are required");
   }
+
+  // Defensive normalization: if tags ever arrives as one comma-joined
+  // string (e.g. "ai, web-dev, dsa") rather than a real array, split it -
+  // otherwise Mongoose would store the whole string as a single tag.
+  const normalizedTags = Array.isArray(tags)
+    ? tags
+    : tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
 
   if (new Date(end) <= new Date(start)) {
     throw new apiError(400, "End time must be after start time");
@@ -75,11 +85,12 @@ const createEvent = asyncHandler(async (req, res) => {
     category,
     mode,
     image: coverImage.url,
-    tags,
+    tags: normalizedTags,
     start,
     end,
-    venue,
-    city,
+    venue: mode === "Offline" ? venue : "",
+    city: mode === "Offline" ? city : "",
+    meetingLink: mode === "Online" ? meetingLink : "",
     organizerId: req.user._id, // pulled from verifyJWT, not the client
     ticketType,
     ticketPrice: ticketType === "Paid" ? ticketPrice : 0,
@@ -205,6 +216,7 @@ const updateEvent = asyncHandler(async (req, res) => {
     "end",
     "venue",
     "city",
+    "meetingLink",
     "ticketType",
     "ticketPrice",
     "capacity",
@@ -221,9 +233,17 @@ const updateEvent = asyncHandler(async (req, res) => {
   }
 
   allowedFields.forEach((field) => {
-    if (req.body[field] !== undefined) {
-      event[field] = req.body[field];
+    if (req.body[field] === undefined) return;
+
+    if (field === "tags" && typeof req.body.tags === "string") {
+      event.tags = req.body.tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      return;
     }
+
+    event[field] = req.body[field];
   });
 
   // optional cover image swap
@@ -238,6 +258,22 @@ const updateEvent = asyncHandler(async (req, res) => {
 
   if (new Date(event.end) <= new Date(event.start)) {
     throw new apiError(400, "End time must be after start time");
+  }
+
+  // Whichever field doesn't apply to the (possibly just-changed) mode is
+  // cleared out, so an event edited from Offline to Online doesn't keep a
+  // stale venue/city hanging around, and vice versa.
+  if (event.mode === "Offline") {
+    if (!event.venue?.trim() || !event.city?.trim()) {
+      throw new apiError(400, "Venue and city are required for offline events");
+    }
+    event.meetingLink = "";
+  } else if (event.mode === "Online") {
+    if (!event.meetingLink?.trim()) {
+      throw new apiError(400, "A meeting link is required for online events");
+    }
+    event.venue = "";
+    event.city = "";
   }
 
   await event.save();
@@ -271,6 +307,39 @@ const deleteEvent = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, "Event deleted successfully", {}));
 });
 
+// AI-assisted description generation - takes a rough topic + whatever
+// other fields the host has already filled in, and returns a ready-to-use
+// event description they can accept as-is or edit further.
+const generateEventDescription = asyncHandler(async (req, res) => {
+  const { topic, category, mode, tags } = req.body;
+
+  if (!topic || !topic.trim()) {
+    throw new apiError(400, "Describe the event topic first");
+  }
+
+  const contextLines = [
+    `Topic: ${topic.trim()}`,
+    category && `Category: ${category}`,
+    mode && `Format: ${mode}`,
+    tags && `Tags: ${tags}`,
+  ].filter(Boolean);
+
+  const description = await generateText({
+    system:
+      "You write concise, engaging event descriptions for an event-discovery website. " +
+      "Write 2-3 short paragraphs (120-180 words total) that would make someone want to " +
+      "attend: what the event covers, who it's for, and what attendees will get out of it. " +
+      "Plain prose only - no headings, bullet points, emojis, or markdown formatting. " +
+      "Do not invent specific dates, prices, or venue details.",
+    prompt: `Write an event description for:\n${contextLines.join("\n")}`,
+    maxTokens: 400,
+  });
+
+  return res
+    .status(200)
+    .json(new apiResponse(200, "Description generated successfully", { description }));
+});
+
 export {
   createEvent,
   getAllEvents,
@@ -278,4 +347,5 @@ export {
   getMyEvents,
   updateEvent,
   deleteEvent,
+  generateEventDescription,
 };
