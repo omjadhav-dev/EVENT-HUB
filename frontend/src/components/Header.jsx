@@ -1,38 +1,43 @@
-import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { Search } from "lucide-react";
 import { getStates, getCities } from "../api/locationApi";
 import logo from "../assets/logo.png";
 
 function Header() {
   const authStatus = useSelector((state) => state.auth.status);
   const userData = useSelector((state) => state.auth.userData);
+  const navigate = useNavigate();
 
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
 
-  const [selectedState, setSelectedState] = useState("Maharashtra");
-  const [selectedCity, setSelectedCity] = useState("Mumbai");
+  const [searchText, setSearchText] = useState("");
+  const [selectedState, setSelectedState] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
 
   useEffect(() => {
-    async function loadStates() {
-      const data = await getStates();
-      setStates(data);
-    }
-
-    loadStates();
+    getStates()
+      .then(setStates)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!selectedState) return;
 
-    async function loadCities() {
-      const data = await getCities(selectedState);
-      setCities(data);
-    }
-
-    loadCities();
+    getCities(selectedState)
+      .then(setCities)
+      .catch(() => {});
   }, [selectedState]);
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchText.trim()) params.set("search", searchText.trim());
+    if (selectedCity) params.set("city", selectedCity);
+    navigate(`/explore${params.toString() ? `?${params.toString()}` : ""}`);
+  };
 
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-gray-950">
@@ -45,12 +50,20 @@ function Header() {
           />
         </Link>
 
-        <div className="flex items-center border rounded-2xl overflow-hidden bg-white">
-          <input
-            type="text"
-            placeholder="Search events..."
-            className="h-10 w-60 px-4 outline-none"
-          />
+        <form
+          onSubmit={handleSearchSubmit}
+          className="flex items-center border rounded-2xl overflow-hidden bg-white"
+        >
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search events..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="h-10 w-60 pl-9 pr-3 outline-none"
+            />
+          </div>
 
           <select
             className="h-10 w-30 px-3 border-l"
@@ -72,6 +85,7 @@ function Header() {
             onChange={(e) => {
               setSelectedState(e.target.value);
               setSelectedCity("");
+              setCities([]);
             }}
           >
             <option value="">State</option>
@@ -82,7 +96,14 @@ function Header() {
               </option>
             ))}
           </select>
-        </div>
+
+          <button
+            type="submit"
+            className="h-10 px-4 bg-amber-50 hover:bg-amber-200 text-gray-900 font-semibold cursor-pointer"
+          >
+            Go
+          </button>
+        </form>
 
         <div className="flex items-center gap-4">
           <Link to="/explore" className="text-white hover:text-yellow-400">
@@ -101,10 +122,6 @@ function Header() {
                 My Events
               </Link>
             ))}
-
-          {/*<button className="h-10 px-5 rounded-2xl bg-amber-50 cursor-pointer hover:bg-amber-200">
-            + Create Event
-          </button>*/}
 
           {authStatus ? (
             <Link to="/profile">
