@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate, Link } from "react-router-dom";
 import { logout, updateUser } from "../store/authSlice";
-import { updateUserRecord } from "../store/usersSlice";
+import { logoutUser, updateUserProfile } from "../api/auth.api";
+import { useToast } from "../context/useToast";
 import { Pencil, Check, X } from "lucide-react";
 
 function Profile() {
@@ -12,36 +13,45 @@ function Profile() {
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(userData?.name || "");
-  const [userType, setUserType] = useState(userData?.userType || "Attendee");
+  const [saving, setSaving] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch {
+      // even if the request fails, clear local state so the UI doesn't
+      // get stuck showing a logged-in user with an invalid session
+    }
     dispatch(logout());
     navigate("/");
   };
 
   const startEditing = () => {
     setName(userData?.name || "");
-    setUserType(userData?.userType || "Attendee");
     setIsEditing(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
-      alert("Name can't be empty.");
+      toast.error("Name can't be empty.");
       return;
     }
 
-    const updates = { name: name.trim(), userType };
-
-    // Keep the auth session and the stored account record in sync, so a
-    // later log-out/log-in still reflects the edited name/type.
-    dispatch(updateUser(updates));
-    dispatch(updateUserRecord({ email: userData.email, updates }));
-
-    setIsEditing(false);
+    setSaving(true);
+    try {
+      const res = await updateUserProfile({ name: name.trim() });
+      dispatch(updateUser(res.data));
+      setIsEditing(false);
+      toast.success("Profile updated.");
+    } catch (err) {
+      toast.error(err.message || "Something went wrong while saving your profile.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!authStatus) {
@@ -58,9 +68,7 @@ function Profile() {
     );
   }
 
-  const myBookingsCount = bookings.filter(
-    (booking) => booking.userEmail === userData?.email,
-  ).length;
+  const myBookingsCount = bookings.filter((b) => b.status !== "Cancelled").length;
 
   return (
     <div className="min-h-screen bg-[#0d0d12] text-white px-12 py-10">
@@ -84,42 +92,18 @@ function Profile() {
 
               <p className="text-gray-400 mt-3">{userData?.email}</p>
 
-              <label className="block text-gray-400 text-sm mt-4 mb-2">
-                Account Type
-              </label>
-              <div className="grid grid-cols-2 gap-3 max-w-xs">
-                <button
-                  type="button"
-                  onClick={() => setUserType("Attendee")}
-                  className={`py-2 rounded-lg border transition cursor-pointer ${
-                    userType === "Attendee"
-                      ? "bg-violet-600 text-white border-violet-600"
-                      : "border-violet-600 text-violet-400 hover:bg-violet-600 hover:text-white"
-                  }`}
-                >
-                  Attendee
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setUserType("Organizer")}
-                  className={`py-2 rounded-lg border transition cursor-pointer ${
-                    userType === "Organizer"
-                      ? "bg-violet-600 text-white border-violet-600"
-                      : "border-violet-600 text-violet-400 hover:bg-violet-600 hover:text-white"
-                  }`}
-                >
-                  Organizer
-                </button>
-              </div>
+              <p className="text-gray-500 text-xs mt-4">
+                Account type ({userData?.userType}) can't be changed after signup.
+              </p>
 
               <div className="flex gap-3 mt-5">
                 <button
                   onClick={handleSave}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg font-semibold cursor-pointer"
+                  disabled={saving}
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg font-semibold cursor-pointer disabled:opacity-50"
                 >
                   <Check size={18} />
-                  Save
+                  {saving ? "Saving..." : "Save"}
                 </button>
 
                 <button

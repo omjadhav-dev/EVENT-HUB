@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { registerUser } from "../store/usersSlice";
+import { registerUser } from "../api/auth.api";
+import { getStates, getCities } from "../api/locationApi";
+import { useToast } from "../context/useToast";
 
 function SignUp() {
   const location = useLocation();
+  const toast = useToast();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -12,72 +14,57 @@ function SignUp() {
   const [userType, setUserType] = useState(
     location.state?.presetUserType === "host" ? "host" : "",
   );
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [selectedState, setSelectedState] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const users = useSelector((state) => state.users.list);
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    getStates()
+      .then(setStates)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedState) return;
+    getCities(selectedState)
+      .then(setCities)
+      .catch(() => {});
+  }, [selectedState]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
 
- 
     if (!name || !email || !password || !userType) {
-      alert("Please fill all the fields.");
+      setError("Please fill all the fields.");
       return;
     }
 
-    if (users.some((u) => u.email === email)) {
-      alert("An account with this email already exists. Please log in.");
-      return;
+    // Matches the backend's User model enum: ["Attendee", "Host"]
+    const backendUserType = userType === "attendee" ? "Attendee" : "Host";
+
+    setSubmitting(true);
+    try {
+      await registerUser({
+        name,
+        email,
+        password,
+        userType: backendUserType,
+        state: selectedState,
+        city: selectedCity,
+      });
+      toast.success("Account created - you can log in now.", { title: "Welcome!" });
+      navigate("/login");
+    } catch (err) {
+      setError(err.message || "Something went wrong while signing up.");
+    } finally {
+      setSubmitting(false);
     }
-
-    // Stored so Login can verify credentials and know the userType
-    // automatically, without asking the user to pick it every time.
-    // NOTE: storing the raw password client-side is only for frontend
-    // testing - a real backend should hash it before this ever exists.
-    const user = {
-      name,
-      email,
-      password,
-      userType: userType === "attendee" ? "Attendee" : "Organizer",
-    };
-
-    dispatch(registerUser(user));
-
-    console.log("User Registered:", user);
-
-    // ==========================================================
-    //               FUTURE BACKEND INTEGRATION
-    // ==========================================================
-
-    // 1. Send POST request to backend
-    //
-    // const response = await axios.post("/api/signup", {
-    //   name,
-    //   email,
-    //   password,
-    //   userType,
-    // });
-
-    // 2. Backend validates the data
-
-    // 3. Backend creates a new user in MongoDB
-
-    // 4. Backend sends response
-    //
-    // {
-    //    success: true,
-    //    message: "Account Created Successfully"
-    // }
-
-    // 5. If successful, navigate to Login page
-    //
-    // navigate("/login");
-
-    // ==========================================================
-
-    // Temporary Navigation
-    navigate("/login");
   };
 
   return (
@@ -93,8 +80,14 @@ function SignUp() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-5 rounded-lg border border-red-800 bg-red-950/50 px-4 py-3 text-red-300 text-sm">
+            {error}
+          </div>
+        )}
+
         <form className="space-y-5" onSubmit={handleSubmit}>
-        
+
           <div>
             <label className="block text-gray-300 mb-2">
               Name
@@ -109,7 +102,7 @@ function SignUp() {
             />
           </div>
 
-       
+
           <div>
             <label className="block text-gray-300 mb-2">
               Email
@@ -138,7 +131,55 @@ function SignUp() {
             />
           </div>
 
-        
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-gray-300 mb-2">
+                State
+              </label>
+              <select
+                value={selectedState}
+                onChange={(e) => {
+                  setSelectedState(e.target.value);
+                  setSelectedCity("");
+                  setCities([]);
+                }}
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-3 text-white outline-none focus:border-blue-500"
+              >
+                <option value="">Select state</option>
+                {states.map((s) => (
+                  <option key={s.name} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-gray-300 mb-2">
+                City
+              </label>
+              <select
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                disabled={!selectedState}
+                className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:opacity-50"
+              >
+                <option value="">Select city</option>
+                {cities.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <p className="text-gray-500 text-xs -mt-3">
+            Used to show you events happening near you.
+          </p>
+
+
           <div>
             <label className="block text-gray-300 mb-3">
               I Want To
@@ -171,15 +212,16 @@ function SignUp() {
             </div>
           </div>
 
-         
+
           <button
             type="submit"
-            className="w-full bg-yellow-600 hover:bg-yellow-700 transition rounded-lg py-3 text-white font-semibold cursor-pointer"
+            disabled={submitting}
+            className="w-full bg-yellow-600 hover:bg-yellow-700 transition rounded-lg py-3 text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Create Account
+            {submitting ? "Creating Account..." : "Create Account"}
           </button>
 
-        
+
           <p className="text-center text-gray-400">
             Already have an account?{" "}
             <Link
