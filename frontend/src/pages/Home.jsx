@@ -1,37 +1,41 @@
-import React from "react";
+import { useEffect, useState } from "react";
 import Card from "../components/Card";
 import DiscoverEvents from "../components/DiscoverEvents";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import image from "../assets/image.png";
 import { Link, useNavigate } from "react-router-dom";
+import { getAllEvents } from "../api/event.api";
+import { setEvents } from "../store/eventSlice";
+import { useToast } from "../context/useToast";
 
 function Home() {
-  // Pulled live from Redux so newly published events show up here too.
   const events = useSelector((state) => state.event.list);
   const authStatus = useSelector((state) => state.auth.status);
   const userData = useSelector((state) => state.auth.userData);
+  const dispatch = useDispatch();
+  const toast = useToast();
 
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getAllEvents({ limit: 6, sortBy: "start", sortType: "asc" })
+      .then((res) => dispatch(setEvents(res.data.events)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [dispatch]);
 
   const handleHostClick = () => {
-    // Only an already-registered Organizer can jump straight to Create.
+    // Only an already-registered Host can jump straight to Create.
     // Everyone else has to register as a host first.
-    if (authStatus && userData?.userType === "Organizer") {
+    if (authStatus && userData?.userType === "Host") {
       navigate("/create");
       return;
     }
 
-    if (authStatus) {
-      // Logged in, but as an Attendee - point them to their profile so
-      // they can switch account type before hosting.
-      alert(
-        "Your account is registered as an Attendee. Switch to Organizer in your profile to host events.",
-      );
-      navigate("/profile");
-      return;
-    }
-
-    alert("Please register as a host to start hosting events.");
+    toast.info("Please register as a host to start hosting events.", {
+      title: "Host account required",
+    });
     navigate("/signup", { state: { presetUserType: "host" } });
   };
 
@@ -75,28 +79,29 @@ function Home() {
 
       <section className="px-20 py-16 text-white">
         <div className="flex justify-between items-center">
-          <h1 className="text-4xl font-bold">Events Near You</h1>
+          <h1 className="text-4xl font-bold">Upcoming Events</h1>
 
-          <button className="text-amber-400 cursor-pointer hover:text-yellow-100">
+          <Link
+            to="/explore"
+            className="text-amber-400 cursor-pointer hover:text-yellow-100"
+          >
             View All →
-          </button>
+          </Link>
         </div>
 
-        <div className="grid grid-cols-3 gap-8 mt-10">
-          {events.slice(0, 3).map((event) => (
-            <Card
-              key={event.id}
-              id={event.id}
-              image={event.image}
-              title={event.title}
-              category={event.category}
-              priceType={event.priceType}
-              date={event.date}
-              location={event.location}
-              tags={event.tags}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <p className="text-gray-400 mt-10">Loading events...</p>
+        ) : events.length === 0 ? (
+          <p className="text-gray-400 mt-10">
+            No events yet - be the first to host one.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-10">
+            {events.slice(0, 3).map((event) => (
+              <Card key={event._id} event={event} />
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
