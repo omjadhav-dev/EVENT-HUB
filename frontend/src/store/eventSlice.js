@@ -1,26 +1,31 @@
 import { createSlice } from "@reduxjs/toolkit";
-import eventList from "../data/eventList";
 
-// This slice is now the single source of truth for ALL events shown across
-// the app (Home, Explore, Event details, My Events). It starts out seeded
-// with the dummy data from src/data/eventList.js, and any event created via
-// the Create Event form gets pushed into the same array with "addEvent".
-// This way eventList.js and eventSlice no longer compete with each other -
-// eventList.js is just the *initial seed data*, and eventSlice is the *live
-// state* that the rest of the app should actually read from.
+// Live cache of events fetched from the backend. Replaces the old
+// eventList.js dummy-data seed - every event here now comes from
+// GET /api/v1/events (or the my-events / single-event endpoints).
 const initialState = {
-    list: eventList,
+    list: [],
 }
 
 const eventSlice = createSlice({
     name: "event",
     initialState,
     reducers: {
+        setEvents: (state, action) => {
+            state.list = action.payload;
+        },
         addEvent: (state, action) => {
             state.list.push(action.payload);
+        },
+        updateEventInList: (state, action) => {
+            const index = state.list.findIndex((e) => e._id === action.payload._id);
+            if (index !== -1) state.list[index] = action.payload;
+        },
+        removeEventFromList: (state, action) => {
+            state.list = state.list.filter((e) => e._id !== action.payload);
         },
     }
 })
 
-export const { addEvent } = eventSlice.actions;
+export const { setEvents, addEvent, updateEventInList, removeEventFromList } = eventSlice.actions;
 export default eventSlice.reducer;

@@ -1,34 +1,33 @@
 import { createSlice } from "@reduxjs/toolkit";
 
+// Live cache of the logged-in user's registrations, fetched from
+// GET /api/v1/registrations/my-bookings. Each entry is a Registration
+// document from the backend: { _id, eventId (populated Event), userId,
+// qrCode, checkedIn, status, createdAt, ... }
 const initialState = {
-    list: [], // { ticketId, eventId, eventTitle, eventImage, eventDate, eventLocation, userEmail, userName, bookedAt, status }
+    list: [],
 }
 
 const bookingsSlice = createSlice({
     name: "bookings",
     initialState,
     reducers: {
+        setBookings: (state, action) => {
+            state.list = action.payload;
+        },
         addBooking: (state, action) => {
-            state.list.push({ checkedIn: false, ...action.payload });
+            state.list.unshift(action.payload);
         },
-        cancelBooking: (state, action) => {
-            const booking = state.list.find(
-                (b) => b.ticketId === action.payload,
-            );
-            if (booking) {
-                booking.status = "Cancelled";
-            }
-        },
-        checkInBooking: (state, action) => {
-            const booking = state.list.find(
-                (b) => b.ticketId === action.payload,
-            );
-            if (booking) {
-                booking.checkedIn = true;
-            }
+        // Merge partial updates (e.g. { status: "Cancelled" } or
+        // { checkedIn: true }) into the booking with this _id - used after
+        // a successful cancel/check-in API call.
+        updateBooking: (state, action) => {
+            const { _id, updates } = action.payload;
+            const booking = state.list.find((b) => b._id === _id);
+            if (booking) Object.assign(booking, updates);
         },
     }
 })
 
-export const { addBooking, cancelBooking, checkInBooking } = bookingsSlice.actions;
+export const { setBookings, addBooking, updateBooking } = bookingsSlice.actions;
 export default bookingsSlice.reducer;
