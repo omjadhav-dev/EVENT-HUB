@@ -4,7 +4,7 @@
 
 Attendees browse events, book tickets that generate a unique QR code, chat live with other attendees, and manage their bookings. Hosts create and publish events (with an AI writing assistant for descriptions), track registrations and revenue on an analytics dashboard, and check attendees in at the door with a camera-based QR scanner.
 
-
+---
 ## Features
 
 ### For everyone
@@ -232,4 +232,4 @@ This keeps the live `Event` collection limited to current/upcoming events, while
 - **Email notifications** for booking confirmations and event reminders
 - **Social login** via Google OAuth
 
----
+
