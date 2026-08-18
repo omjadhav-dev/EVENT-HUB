@@ -2,6 +2,8 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { apiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { Event } from "../models/event.models.js";
+import { Registration } from "../models/registration.models.js";
+import { EventArchive } from "../models/eventArchive.models.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import { generateText } from "../utils/gemini.js";
 import mongoose from "mongoose";
@@ -340,6 +342,154 @@ const generateEventDescription = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, "Description generated successfully", { description }));
 });
 
+// Host analytics - attendance trends + revenue across every event the
+// logged-in host organizes. Revenue is derived (ticketPrice x confirmed
+// registrations) rather than stored anywhere, since there's no payment
+// flow yet (see README "Future Enhancements").
+//
+// Once an event's `end` date passes, deleteExpiredEvents.js removes the
+// live Event/Registration documents and writes a stats snapshot to
+// EventArchive instead - so this combines both sources rather than
+// only reading the (now much smaller) live Event collection. `range`
+// controls how far back archived events are pulled from; live events
+// are always included since they haven't been archived yet.
+const RANGE_TO_DAYS = { "1m": 30, "3m": 90, all: null };
+
+const getHostAnalytics = asyncHandler(async (req, res) => {
+  const hostId = req.user._id;
+  const range = RANGE_TO_DAYS.hasOwnProperty(req.query.range)
+    ? req.query.range
+    : "3m";
+  const rangeDays = RANGE_TO_DAYS[range];
+  const cutoffDate = rangeDays
+    ? new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000)
+    : null;
+
+  const liveEvents = await Event.find({ organizerId: hostId })
+    .select("title start capacity ticketType ticketPrice")
+    .sort({ start: -1 });
+
+  const archiveFilter = { organizerId: hostId };
+  if (cutoffDate) archiveFilter.end = { $gte: cutoffDate };
+  const archivedEvents = await EventArchive.find(archiveFilter).sort({
+    start: -1,
+  });
+
+  if (liveEvents.length === 0 && archivedEvents.length === 0) {
+    return res.status(200).json(
+      new apiResponse(200, "Analytics fetched successfully", {
+        range,
+        overview: {
+          totalEvents: 0,
+          totalRegistrations: 0,
+          totalCheckedIn: 0,
+          totalRevenue: 0,
+          overallAttendanceRate: 0,
+        },
+        perEvent: [],
+        registrationTrend: [],
+      }),
+    );
+  }
+
+  const liveEventIds = liveEvents.map((event) => event._id);
+
+  // Only confirmed registrations count toward attendance/revenue -
+  // cancelled ones never checked in and were never actually paid for.
+  const registrations = await Registration.find({
+    eventId: { $in: liveEventIds },
+    status: "Confirmed",
+  }).select("eventId checkedIn createdAt");
+
+  const registrationsByEvent = new Map();
+  registrations.forEach((registration) => {
+    const key = registration.eventId.toString();
+    if (!registrationsByEvent.has(key)) registrationsByEvent.set(key, []);
+    registrationsByEvent.get(key).push(registration);
+  });
+
+  const livePerEvent = liveEvents.map((event) => {
+    const eventRegs = registrationsByEvent.get(event._id.toString()) || [];
+    const checkedIn = eventRegs.filter((r) => r.checkedIn).length;
+    const revenue =
+      event.ticketType === "Paid" ? eventRegs.length * event.ticketPrice : 0;
+
+    return {
+      eventId: event._id,
+      title: event.title,
+      start: event.start,
+      capacity: event.capacity,
+      registrations: eventRegs.length,
+      checkedIn,
+      attendanceRate: eventRegs.length
+        ? Math.round((checkedIn / eventRegs.length) * 100)
+        : 0,
+      revenue,
+      archived: false,
+    };
+  });
+
+  // Archived events only ever had aggregate counts saved (the individual
+  // Registration documents are gone), so there's no per-registration date
+  // to build a daily trend from - attendanceRate is still computable.
+  const archivedPerEvent = archivedEvents.map((event) => ({
+    eventId: event._id,
+    title: event.title,
+    start: event.start,
+    capacity: event.capacity,
+    registrations: event.registrations,
+    checkedIn: event.checkedIn,
+    attendanceRate: event.registrations
+      ? Math.round((event.checkedIn / event.registrations) * 100)
+      : 0,
+    revenue: event.revenue,
+    archived: true,
+  }));
+
+  const perEvent = [...livePerEvent, ...archivedPerEvent].sort(
+    (a, b) => new Date(b.start) - new Date(a.start),
+  );
+
+  const totalRegistrations = perEvent.reduce((sum, e) => sum + e.registrations, 0);
+  const totalCheckedIn = perEvent.reduce((sum, e) => sum + e.checkedIn, 0);
+  const totalRevenue = perEvent.reduce((sum, e) => sum + e.revenue, 0);
+
+  // Daily registration counts (attendance trend) - only live events have
+  // per-registration timestamps to bucket by day. Each archived event
+  // contributes one lump point on the day it ended, so its volume still
+  // shows up on the trend line even without daily granularity.
+  const trendMap = new Map();
+  registrations.forEach((registration) => {
+    const day = registration.createdAt.toISOString().slice(0, 10);
+    trendMap.set(day, (trendMap.get(day) || 0) + 1);
+  });
+  archivedEvents.forEach((event) => {
+    if (event.registrations === 0) return;
+    const day = event.end.toISOString().slice(0, 10);
+    trendMap.set(day, (trendMap.get(day) || 0) + event.registrations);
+  });
+  const registrationTrend = Array.from(trendMap.entries())
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([date, count]) => ({ date, count }));
+
+  return res.status(200).json(
+    new apiResponse(200, "Analytics fetched successfully", {
+      range,
+      overview: {
+        totalEvents: perEvent.length,
+        totalRegistrations,
+        totalCheckedIn,
+        totalRevenue,
+        overallAttendanceRate: totalRegistrations
+          ? Math.round((totalCheckedIn / totalRegistrations) * 100)
+          : 0,
+      },
+      perEvent,
+      registrationTrend,
+    }),
+  );
+});
+
 export {
   createEvent,
   getAllEvents,
@@ -348,4 +498,5 @@ export {
   updateEvent,
   deleteEvent,
   generateEventDescription,
+  getHostAnalytics,
 };

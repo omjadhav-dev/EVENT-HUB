@@ -1,12 +1,105 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSelector } from "react-redux";
-import { CalendarDays, Users, QrCode, Eye, Plus, Trash2, ScanLine, RefreshCw, Pencil } from "lucide-react";
+import {
+  CalendarDays,
+  Users,
+  QrCode,
+  Eye,
+  Plus,
+  Trash2,
+  ScanLine,
+  RefreshCw,
+  Pencil,
+  BarChart3,
+  X,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { getMyEvents, deleteEvent as deleteEventApi } from "../api/event.api";
 import { getEventRegistrations, checkInAttendee } from "../api/registration.api";
 import { useToast } from "../context/useToast";
 import QRScanner from "../components/QRScanner";
 import ConfirmModal from "../components/ConfirmModal";
+
+// Shown when the host clicks "View" on an event row - all registrations
+// for that one event, with per-attendee check-in and a "Check-in All"
+// shortcut for the ones still pending.
+function EventRegistrationsModal({ event, registrations, onCheckIn, onCheckInAll, onClose }) {
+  const eventRegs = registrations.filter(
+    (r) => r.hostEventId === event._id && r.status !== "Cancelled",
+  );
+  const pending = eventRegs.filter((r) => !r.checkedIn);
+
+  return (
+    <div className="fixed inset-0 z-[9997] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-[#13131b] border border-gray-800 rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800">
+          <div>
+            <h3 className="text-2xl font-bold">{event.title}</h3>
+            <p className="text-gray-400 text-sm mt-1">
+              {eventRegs.length} registered
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white cursor-pointer"
+          >
+            <X size={22} />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+          <p className="text-gray-400 text-sm">
+            {pending.length} pending check-in
+          </p>
+          <button
+            onClick={() => onCheckInAll(event._id)}
+            disabled={pending.length === 0}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+          >
+            <QrCode size={16} />
+            Check-in All
+          </button>
+        </div>
+
+        <div className="overflow-y-auto px-6 py-4 space-y-3">
+          {eventRegs.length === 0 ? (
+            <p className="text-gray-400 text-sm">No registrations yet.</p>
+          ) : (
+            eventRegs.map((registration) => (
+              <div
+                key={registration._id}
+                className="bg-[#1a1a25] rounded-xl p-4 flex justify-between items-center"
+              >
+                <div>
+                  <h4 className="font-semibold capitalize">
+                    {registration.userId?.name}
+                  </h4>
+                  <p className="text-gray-400 text-sm mt-0.5">
+                    {registration.userId?.email}
+                  </p>
+                </div>
+
+                {registration.checkedIn ? (
+                  <span className="bg-green-950 text-green-400 px-3 py-1 rounded-lg text-xs tracking-widest">
+                    CHECKED IN
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => onCheckIn(registration)}
+                    className="flex items-center gap-2 bg-violet-900 text-violet-300 hover:bg-violet-800 px-3 py-1 rounded-lg text-xs tracking-widest cursor-pointer"
+                  >
+                    <QrCode size={14} />
+                    CHECK IN
+                  </button>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function MyEvents() {
   const userData = useSelector((state) => state.auth.userData);
@@ -17,10 +110,10 @@ function MyEvents() {
   // each tagged with its eventId/eventTitle for display below.
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [regFilter, setRegFilter] = useState("all");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [viewingEvent, setViewingEvent] = useState(null);
 
   const loadData = useCallback(() => {
     if (!userData) return;
@@ -30,14 +123,7 @@ function MyEvents() {
         setMyEvents(events);
 
         // The backend has no "all registrations for all my events" endpoint,
-        // so fetch each event's registrations and flatten them. NOTE:
-        // getEventRegistrations doesn't populate `eventId` on each
-        // registration (only `userId`), so it stays a plain ObjectId
-        // string - comparing it directly against event._id would always
-        // be comparing a string to itself and should work, but to avoid
-        // any ambiguity (and because other code was previously comparing
-        // against eventId?._id, which is never populated here and was
-        // silently always undefined) we tag each one explicitly.
+        // so fetch each event's registrations and flatten them.
         const perEvent = await Promise.all(
           events.map((event) =>
             getEventRegistrations(event._id)
@@ -63,7 +149,6 @@ function MyEvents() {
 
   const myRegistrations = registrations.filter((r) => r.status !== "Cancelled");
   const pendingRegistrations = myRegistrations.filter((r) => !r.checkedIn);
-  const visibleRegistrations = regFilter === "pending" ? pendingRegistrations : myRegistrations;
 
   const handleCheckIn = async (registration) => {
     try {
@@ -77,17 +162,21 @@ function MyEvents() {
     }
   };
 
-  const handleBulkCheckIn = async () => {
-    if (pendingRegistrations.length === 0) return;
-    // Backend only supports checking in one registration (by QR code) at a
-    // time, so "Check-in All" just fires that call for each pending one.
+  const handleCheckInAllForEvent = async (eventId) => {
+    const pendingForEvent = pendingRegistrations.filter((r) => r.hostEventId === eventId);
+    if (pendingForEvent.length === 0) return;
+
     await Promise.all(
-      pendingRegistrations.map((r) =>
-        checkInAttendee(r.qrCode).catch(() => null),
+      pendingForEvent.map((r) => checkInAttendee(r.qrCode).catch(() => null)),
+    );
+    setRegistrations((prev) =>
+      prev.map((r) =>
+        r.hostEventId === eventId && pendingForEvent.some((p) => p._id === r._id)
+          ? { ...r, checkedIn: true }
+          : r,
       ),
     );
     toast.success("Everyone pending has been checked in.");
-    loadData();
   };
 
   // Called by the QR scanner modal with whatever it read (or whatever the
@@ -139,8 +228,6 @@ function MyEvents() {
   };
 
   const totalEvents = myEvents.length;
-  const totalRegistrations = myRegistrations.length;
-  const readyToCheckIn = pendingRegistrations.length;
 
   if (!userData) {
     return (
@@ -176,6 +263,13 @@ function MyEvents() {
           <h1 className="text-6xl font-bold mt-2">Your events</h1>
         </div>
         <div className="flex gap-3">
+          <Link to="/analytics">
+            <button className="flex cursor-pointer items-center gap-3 border border-violet-600 text-violet-300 hover:bg-violet-600 hover:text-white px-5 py-4 rounded-full font-semibold transition">
+              <BarChart3 size={20} />
+              Analytics
+            </button>
+          </Link>
+
           <button
             onClick={loadData}
             title="Refresh registration counts"
@@ -217,41 +311,17 @@ function MyEvents() {
         />
       )}
 
-      {/* Stats */}
+      {viewingEvent && (
+        <EventRegistrationsModal
+          event={viewingEvent}
+          registrations={registrations}
+          onCheckIn={handleCheckIn}
+          onCheckInAll={handleCheckInAllForEvent}
+          onClose={() => setViewingEvent(null)}
+        />
+      )}
 
-      <div className="grid grid-cols-3 gap-6 mb-12">
-        <div className="border border-gray-700 rounded-2xl p-6 bg-[#13131b]">
-          <CalendarDays className="text-violet-500 mb-4" size={28} />
-
-          <h2 className="text-5xl font-bold">{totalEvents}</h2>
-
-          <p className="uppercase tracking-widest text-gray-400 mt-2 text-sm">
-            Total Events
-          </p>
-        </div>
-
-        <div className="border border-gray-700 rounded-2xl p-6 bg-[#13131b]">
-          <Users className="text-violet-500 mb-4" size={28} />
-
-          <h2 className="text-5xl font-bold">{totalRegistrations}</h2>
-
-          <p className="uppercase tracking-widest text-gray-400 mt-2 text-sm">
-            Total Registrations
-          </p>
-        </div>
-
-        <div className="border border-gray-700 rounded-2xl p-6 bg-[#13131b]">
-          <QrCode className="text-violet-500 mb-4" size={28} />
-
-          <h2 className="text-5xl font-bold">{readyToCheckIn}</h2>
-
-          <p className="uppercase tracking-widest text-gray-400 mt-2 text-sm">
-            Ready To Check-in
-          </p>
-        </div>
-      </div>
-
-      {/* Bottom Section */}
+      {/* Events table */}
 
       {totalEvents === 0 ? (
         <div className="border border-gray-700 rounded-2xl p-10 bg-[#13131b] text-center">
@@ -269,136 +339,90 @@ function MyEvents() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-8">
-          {/* Event Cards */}
+        <div className="border border-gray-700 rounded-2xl bg-[#13131b] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-gray-400 text-sm uppercase tracking-widest border-b border-gray-800">
+                  <th className="px-6 py-4">Event</th>
+                  <th className="px-6 py-4">Date</th>
+                  <th className="px-6 py-4">Registrations</th>
+                  <th className="px-6 py-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {myEvents.map((event) => {
+                  const regsForThisEvent = registrations.filter(
+                    (r) => r.hostEventId === event._id && r.status !== "Cancelled",
+                  ).length;
 
-          <div className="space-y-6">
-            {myEvents.map((event) => {
-              const regsForThisEvent = registrations.filter(
-                (r) => r.hostEventId === event._id && r.status !== "Cancelled",
-              ).length;
-
-              return (
-                <div
-                  key={event._id}
-                  className="border border-violet-500 rounded-2xl bg-[#13131b] p-8 hover:border-violet-400 transition"
-                >
-                  <Link to={`/event/${event._id}`}>
-                    <div className="flex justify-between items-center">
-                      <h2 className="text-3xl font-bold">{event.title}</h2>
-
-                      <span className="bg-violet-900 text-violet-300 px-4 py-1 rounded-lg text-xs tracking-widest">
-                        PUBLISHED
-                      </span>
-                    </div>
-
-                    <div className="flex gap-6 text-gray-400 mt-5">
-                      <div className="flex items-center gap-2">
-                        <CalendarDays size={18} />
-                        {new Date(event.start).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "2-digit",
-                          year: "numeric",
-                        })}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Users size={18} />
-                        {regsForThisEvent} regs
-                      </div>
-                    </div>
-                  </Link>
-
-                  <div className="flex items-center gap-5 mt-5">
-                    <Link
-                      to={`/myevents/${event._id}/edit`}
-                      className="flex items-center gap-2 text-violet-400 hover:text-violet-300 text-sm font-semibold cursor-pointer"
+                  return (
+                    <tr
+                      key={event._id}
+                      className="border-b border-gray-900 last:border-b-0 hover:bg-[#1a1a25] transition"
                     >
-                      <Pencil size={16} />
-                      Edit Event
-                    </Link>
+                      <td className="px-6 py-5">
+                        <Link
+                          to={`/event/${event._id}`}
+                          className="font-semibold text-lg hover:text-violet-400"
+                        >
+                          {event.title}
+                        </Link>
+                      </td>
 
-                    <button
-                      onClick={() => setDeleteTarget(event)}
-                      className="flex items-center gap-2 text-red-400 hover:text-red-300 text-sm font-semibold cursor-pointer"
-                    >
-                      <Trash2 size={16} />
-                      Delete Event
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      <td className="px-6 py-5 text-gray-400">
+                        <div className="flex items-center gap-2">
+                          <CalendarDays size={16} />
+                          {new Date(event.start).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "2-digit",
+                            year: "numeric",
+                          })}
+                        </div>
+                      </td>
 
-          {/* Registrations */}
+                      <td className="px-6 py-5 text-gray-300">
+                        <div className="flex items-center gap-2">
+                          <Users size={16} />
+                          {regsForThisEvent}/{event.capacity}
+                        </div>
+                      </td>
 
-          <div className="border border-gray-700 rounded-2xl bg-[#13131b] p-8 h-fit">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-3xl font-bold">Registrations</h2>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-8">
+                          <Link
+                            to={`/myevents/${event._id}/edit`}
+                            title="Edit Event"
+                            className="flex items-center gap-1 text-violet-400 hover:text-violet-300 text-sm font-semibold cursor-pointer"
+                          >
+                            <Pencil size={16} />
+                            Edit
+                          </Link>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() =>
-                    setRegFilter((f) => (f === "all" ? "pending" : "all"))
-                  }
-                  className="flex items-center gap-2 border border-gray-600 px-3 py-2 rounded-xl hover:bg-gray-800 cursor-pointer"
-                >
-                  <Eye size={18} />
-                  {regFilter === "all" ? "View Pending" : "View All"}
-                </button>
+                          <button
+                            onClick={() => setDeleteTarget(event)}
+                            title="Delete Event"
+                            className="flex items-center gap-1 text-red-400 hover:text-red-300 text-sm font-semibold cursor-pointer"
+                          >
+                            <Trash2 size={16} />
+                            Delete
+                          </button>
 
-                <button
-                  onClick={handleBulkCheckIn}
-                  disabled={pendingRegistrations.length === 0}
-                  className="flex items-center gap-2 bg-violet-600 px-5 py-2 rounded-xl hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <QrCode size={18} />
-                  Check-in All
-                </button>
-              </div>
-            </div>
-
-            {visibleRegistrations.length === 0 ? (
-              <p className="text-gray-400">
-                {regFilter === "pending"
-                  ? "Everyone has already been checked in."
-                  : "No registrations yet."}
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {visibleRegistrations.map((registration) => (
-                  <div
-                    key={registration._id}
-                    className="bg-[#1a1a25] rounded-xl p-5 flex justify-between items-center"
-                  >
-                    <div>
-                      <h3 className="text-xl font-semibold capitalize">
-                        {registration.userId?.name}
-                      </h3>
-
-                      <p className="text-gray-400 mt-1">
-                        {registration.userId?.email} • {registration.eventTitle}
-                      </p>
-                    </div>
-
-                    {registration.checkedIn ? (
-                      <span className="bg-green-950 text-green-400 px-4 py-1 rounded-lg text-xs tracking-widest">
-                        CHECKED IN
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => handleCheckIn(registration)}
-                        className="flex items-center gap-2 bg-violet-900 text-violet-300 hover:bg-violet-800 px-4 py-1 rounded-lg text-xs tracking-widest cursor-pointer"
-                      >
-                        <QrCode size={14} />
-                        CHECK IN
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                          <button
+                            onClick={() => setViewingEvent(event)}
+                            title="View Registrations"
+                            className="flex items-center gap-1 text-gray-300 hover:text-white text-sm font-semibold cursor-pointer"
+                          >
+                            <Eye size={16} />
+                            View
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

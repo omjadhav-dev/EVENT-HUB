@@ -9,6 +9,7 @@ import {
   updateEvent,
   deleteEvent,
   generateEventDescription,
+  getHostAnalytics,
 } from "../controllers/event.controllers.js";
 
 const eventRouter = Router();
@@ -16,6 +17,7 @@ const eventRouter = Router();
 // Specific paths before "/:eventId" so they aren't swallowed by the param route
 eventRouter.route("/my-events").get(verifyJWT, getMyEvents)
 eventRouter.route("/generate-description").post(verifyJWT, generateEventDescription)
+eventRouter.route("/analytics").get(verifyJWT, getHostAnalytics)
 
 eventRouter.route("/").get(getAllEvents)
 
