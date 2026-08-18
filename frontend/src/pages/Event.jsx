@@ -211,7 +211,7 @@ function Event() {
               <p className="text-gray-300 leading-8">{event.description}</p>
             </div>
 
-            <EventChat eventId={id} />
+            <EventChat eventId={id} eventTitle={event.title} />
           </div>
 
           {/* Right */}
