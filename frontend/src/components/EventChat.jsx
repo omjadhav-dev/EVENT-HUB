@@ -1,17 +1,43 @@
 import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import { MessageCircle, Send, Wifi, WifiOff } from "lucide-react";
+import { MessageCircle, Send, Wifi, WifiOff, Bell, BellOff } from "lucide-react";
 import { getEventMessages } from "../api/chat.api";
 import { createChatSocket } from "../socket";
 import { useToast } from "../context/useToast";
+
+const NOTIFICATIONS_SUPPORTED =
+  typeof window !== "undefined" && "Notification" in window;
+
+// Push-style desktop notifications for this event's chat, via the
+// browser Notification API - no separate push service needed since we
+// already hold a live socket connection while this page is open. Fires
+// only for messages from someone else, and only while the tab is in the
+// background/hidden, so it doesn't double up with the on-screen bubble.
+function notifyNewMessage(eventTitle, message) {
+  if (!NOTIFICATIONS_SUPPORTED || Notification.permission !== "granted") return;
+  if (!document.hidden) return;
+
+  const notification = new Notification(
+    `${message.userId?.name || "Someone"} in ${eventTitle}`,
+    {
+      body: message.text,
+      icon: "/logo.png",
+      tag: `event-chat-${message.eventId}`,
+    },
+  );
+  notification.onclick = () => {
+    window.focus();
+    notification.close();
+  };
+}
 
 // Open discussion thread for an event - anyone signed in can read and
 // post here, whether or not they actually booked a ticket, so people who
 // couldn't make it can still share opinions / ask questions. Real-time
 // via Socket.io: history loads once over REST, then new messages arrive
 // live over the "event:<id>" room (see backend/src/socket/index.js).
-function EventChat({ eventId }) {
+function EventChat({ eventId, eventTitle = "this event" }) {
   const authStatus = useSelector((state) => state.auth.status);
   const userData = useSelector((state) => state.auth.userData);
   const toast = useToast();
@@ -21,8 +47,37 @@ function EventChat({ eventId }) {
   const [loading, setLoading] = useState(Boolean(authStatus));
   const [sending, setSending] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [notifPermission, setNotifPermission] = useState(
+    NOTIFICATIONS_SUPPORTED ? Notification.permission : "unsupported",
+  );
   const bottomRef = useRef(null);
   const socketRef = useRef(null);
+
+  const notificationsOn = notifPermission === "granted";
+
+  const handleToggleNotifications = async () => {
+    if (!NOTIFICATIONS_SUPPORTED) {
+      toast.info("Your browser doesn't support notifications.");
+      return;
+    }
+    if (notificationsOn) {
+      // The Notification API has no "revoke" call from JS - the closest
+      // we can do is tell the user it lives in browser settings, and stop
+      // firing on our end isn't possible without a permission change, so
+      // just explain instead of pretending to turn it off.
+      toast.info("To stop notifications, disable them for this site in your browser settings.");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotifPermission(permission);
+    if (permission === "granted") {
+      toast.success("You'll get a notification when someone replies here.", {
+        title: "Notifications on",
+      });
+    } else if (permission === "denied") {
+      toast.error("Notifications are blocked for this site.");
+    }
+  };
 
   useEffect(() => {
     if (!authStatus) return;
@@ -48,6 +103,10 @@ function EventChat({ eventId }) {
 
     socket.on("new-message", (message) => {
       setMessages((prev) => (prev.some((m) => m._id === message._id) ? prev : [...prev, message]));
+
+      if (message.userId?._id !== userData?._id) {
+        notifyNewMessage(eventTitle, message);
+      }
     });
 
     return () => {
@@ -102,6 +161,25 @@ function EventChat({ eventId }) {
         <span className="text-gray-500 text-xs ml-auto">
           Open to everyone - even if you're not attending
         </span>
+
+        {authStatus && NOTIFICATIONS_SUPPORTED && (
+          <button
+            type="button"
+            onClick={handleToggleNotifications}
+            title={
+              notificationsOn
+                ? "Notifications are on for this chat"
+                : "Get notified about new messages"
+            }
+            className={`flex items-center gap-1 text-xs ml-3 cursor-pointer ${
+              notificationsOn
+                ? "text-violet-400"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {notificationsOn ? <Bell size={14} /> : <BellOff size={14} />}
+          </button>
+        )}
       </div>
 
       {!authStatus ? (
