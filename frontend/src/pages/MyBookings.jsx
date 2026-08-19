@@ -1,21 +1,48 @@
-import React from "react";
+import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { CalendarDays, MapPin, Ticket } from "lucide-react";
-import { cancelBooking } from "../store/bookingsSlice";
+import { getMyBookings, cancelBooking as cancelBookingApi } from "../api/registration.api";
+import { setBookings, updateBooking } from "../store/bookingsSlice";
+import { useToast } from "../context/useToast";
+import ConfirmModal from "../components/ConfirmModal";
 
-const CANCEL_WINDOW_MS = 48 * 60 * 60 * 1000; // 48 hours
+// Matches the backend's CANCELLATION_CUTOFF_HOURS - bookings can't be
+// cancelled within 24 hours of the event's start time.
+const CANCELLATION_CUTOFF_HOURS = 24;
 
 function MyBookings() {
   const authStatus = useSelector((state) => state.auth.status);
-  const userData = useSelector((state) => state.auth.userData);
   const bookings = useSelector((state) => state.bookings.list);
   const dispatch = useDispatch();
+  const toast = useToast();
+  const [loading, setLoading] = useState(true);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
 
-  const myBookings = bookings.filter(
-    (booking) => booking.userEmail === userData?.email,
-  );
+  useEffect(() => {
+    if (!authStatus) return;
+    getMyBookings()
+      .then((res) => dispatch(setBookings(res.data)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [authStatus, dispatch]);
+
+  const handleCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      await cancelBookingApi(cancelTarget._id);
+      dispatch(updateBooking({ _id: cancelTarget._id, updates: { status: "Cancelled" } }));
+      toast.info("Your booking has been cancelled.");
+      setCancelTarget(null);
+    } catch (err) {
+      toast.error(err.message || "Something went wrong while cancelling this booking.");
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   if (!authStatus) {
     return (
@@ -31,6 +58,14 @@ function MyBookings() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex justify-center items-center text-white">
+        Loading...
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0d0d12] text-white px-12 py-10">
       {/* Heading */}
@@ -42,7 +77,7 @@ function MyBookings() {
         <h1 className="text-6xl font-bold mt-2">My bookings</h1>
       </div>
 
-      {myBookings.length === 0 ? (
+      {bookings.length === 0 ? (
         <div className="border border-gray-700 rounded-2xl p-10 bg-[#13131b] text-center">
           <Ticket className="text-violet-500 mx-auto mb-4" size={32} />
 
@@ -59,17 +94,18 @@ function MyBookings() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-8">
-          {myBookings.map((booking) => {
+          {bookings.map((booking) => {
+            const event = booking.eventId;
             const isCancelled = booking.status === "Cancelled";
 
-            const canCancel =
-              !isCancelled &&
-              Date.now() - new Date(booking.bookedAt).getTime() <
-                CANCEL_WINDOW_MS;
+            const hoursUntilEvent = event
+              ? (new Date(event.start) - new Date()) / (1000 * 60 * 60)
+              : 0;
+            const canCancel = !isCancelled && hoursUntilEvent >= CANCELLATION_CUTOFF_HOURS;
 
             return (
               <div
-                key={booking.ticketId}
+                key={booking._id}
                 className={`border rounded-2xl bg-[#13131b] p-8 flex gap-6 ${
                   isCancelled ? "border-gray-800 opacity-60" : "border-gray-700"
                 }`}
@@ -77,7 +113,7 @@ function MyBookings() {
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
                     <h2 className="text-2xl font-bold">
-                      {booking.eventTitle}
+                      {event?.title}
                     </h2>
 
                     <span
@@ -94,17 +130,21 @@ function MyBookings() {
                   <div className="flex flex-col gap-2 text-gray-400 mt-5">
                     <div className="flex items-center gap-2">
                       <CalendarDays size={18} />
-                      {booking.eventDate}
+                      {event && new Date(event.start).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "2-digit",
+                        year: "numeric",
+                      })}
                     </div>
 
                     <div className="flex items-center gap-2">
                       <MapPin size={18} />
-                      {booking.eventLocation}
+                      {event?.mode === "Offline" ? `${event.venue}, ${event.city}` : event?.mode}
                     </div>
                   </div>
 
-                  <p className="text-gray-500 text-sm mt-6">
-                    Ticket ID: {booking.ticketId}
+                  <p className="text-gray-500 text-sm mt-6 break-all">
+                    Ticket ID: {booking.qrCode}
                   </p>
 
                   {booking.checkedIn && (
@@ -115,7 +155,7 @@ function MyBookings() {
 
                   <div className="flex items-center gap-5 mt-4">
                     <Link
-                      to={`/event/${booking.eventId}`}
+                      to={`/event/${event?._id}`}
                       className="text-violet-400 hover:text-violet-300 text-sm font-semibold"
                     >
                       View event
@@ -123,7 +163,7 @@ function MyBookings() {
 
                     {canCancel && (
                       <button
-                        onClick={() => dispatch(cancelBooking(booking.ticketId))}
+                        onClick={() => setCancelTarget(booking)}
                         className="text-red-400 hover:text-red-300 text-sm font-semibold cursor-pointer"
                       >
                         Cancel Booking
@@ -133,8 +173,8 @@ function MyBookings() {
 
                   {!isCancelled && !canCancel && (
                     <p className="text-gray-600 text-xs mt-3">
-                      Cancellation window (48 hours after booking) has
-                      passed.
+                      Cancellation window ({CANCELLATION_CUTOFF_HOURS} hours before the event starts)
+                      has passed.
                     </p>
                   )}
                 </div>
@@ -144,18 +184,24 @@ function MyBookings() {
                     isCancelled ? "grayscale" : ""
                   }`}
                 >
-                  <QRCodeSVG
-                    value={JSON.stringify({
-                      ticketId: booking.ticketId,
-                      eventId: booking.eventId,
-                    })}
-                    size={120}
-                  />
+                  <QRCodeSVG value={booking.qrCode} size={120} />
                 </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {cancelTarget && (
+        <ConfirmModal
+          title="Cancel this booking?"
+          message={`Your ticket for "${cancelTarget.eventId?.title || "this event"}" will no longer be valid.`}
+          confirmLabel="Yes, cancel it"
+          cancelLabel="Keep my booking"
+          loading={cancelling}
+          onConfirm={handleCancel}
+          onCancel={() => setCancelTarget(null)}
+        />
       )}
     </div>
   );
