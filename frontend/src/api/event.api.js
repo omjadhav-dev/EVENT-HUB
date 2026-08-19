@@ -62,3 +62,9 @@ export function deleteEvent(eventId) {
 export function generateDescription({ topic, category, mode, tags }) {
   return apiClient.post("/events/generate-description", { topic, category, mode, tags });
 }
+
+// Attendance trends + revenue across every event the logged-in host organizes.
+// range: "1m" | "3m" | "all" (defaults to "3m" on the backend).
+export function getHostAnalytics(range) {
+  return apiClient.get(`/events/analytics${range ? `?range=${range}` : ""}`);
+}
